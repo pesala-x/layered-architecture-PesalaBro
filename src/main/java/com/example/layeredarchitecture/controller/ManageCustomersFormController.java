@@ -1,8 +1,7 @@
 package com.example.layeredarchitecture.controller;
 
-import com.example.layeredarchitecture.dao.CustomerDao;
-import com.example.layeredarchitecture.dao.CustomerDaoImpl;
-import com.example.layeredarchitecture.db.DBConnection;
+import com.example.layeredarchitecture.dao.custom.CustomerDAO;
+import com.example.layeredarchitecture.dao.impl.CustomerDAOImpl;
 import com.example.layeredarchitecture.model.CustomerDTO;
 import com.example.layeredarchitecture.view.tdm.CustomerTM;
 import com.jfoenix.controls.JFXButton;
@@ -27,8 +26,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-
-
 public class ManageCustomersFormController {
     public AnchorPane root;
     public TextField txtCustomerName;
@@ -38,6 +35,7 @@ public class ManageCustomersFormController {
     public TextField txtCustomerAddress;
     public TableView<CustomerTM> tblCustomers;
     public JFXButton btnAddNewCustomer;
+    CustomerDAO customerDao=new CustomerDAOImpl();
 
     public void initialize() {
         tblCustomers.getColumns().get(0).setCellValueFactory(new PropertyValueFactory<>("id"));
@@ -68,17 +66,17 @@ public class ManageCustomersFormController {
 
     private void loadAllCustomers() {
         tblCustomers.getItems().clear();
-        CustomerDaoImpl customerDao =new CustomerDaoImpl();
+        /*Get all customers*/
         try {
-            ArrayList<CustomerDTO> customerDTOS = customerDao.GetAllCustomer();
-            for (CustomerDTO dto:customerDTOS) {
-                tblCustomers.getItems().add(
-                  new CustomerTM(
-                          dto.getId(),
-                          dto.getName(),
-                          dto.getAddress()
-                  )
-                );
+            //CustomerDAO customerDAOImp =new CustomerDAOImpl();
+            ArrayList<CustomerDTO> allCustomer = customerDao.getAll();
+
+            for(CustomerDTO customerDTO: allCustomer){
+                tblCustomers.getItems().add(new CustomerTM(
+                        customerDTO.getId(),
+                        customerDTO.getName(),
+                        customerDTO.getAddress()
+                ));
             }
         } catch (SQLException e) {
             new Alert(Alert.AlertType.ERROR, e.getMessage()).show();
@@ -99,6 +97,7 @@ public class ManageCustomersFormController {
         btnSave.setDisable(true);
         btnDelete.setDisable(true);
     }
+
 
     @FXML
     private void navigateToHome(MouseEvent event) throws IOException {
@@ -145,13 +144,11 @@ public class ManageCustomersFormController {
             /*Save Customer*/
             try {
                 if (existCustomer(id)) {
-                    new Alert(Alert.AlertType.ERROR,id +"Already Exist..").show();
+                    new Alert(Alert.AlertType.ERROR, id + " already exists").show();
                 }
-                CustomerDao customerDao = new CustomerDaoImpl();
-                boolean isSaved = customerDao.saveCustomer(new CustomerDTO(id,name,address));
-
-                if (isSaved) {
-                    tblCustomers.getItems().add(new CustomerTM(id,name,address));
+                boolean isSaved = customerDao.save( new CustomerDTO( id, name, address ) );
+                if(isSaved){
+                    tblCustomers.getItems().add(new CustomerTM(id, name, address));
                 }
             } catch (SQLException e) {
                 new Alert(Alert.AlertType.ERROR, "Failed to save the customer " + e.getMessage()).show();
@@ -159,17 +156,24 @@ public class ManageCustomersFormController {
                 e.printStackTrace();
             }
 
+
         } else {
+            /*Update customer*/
             try {
                 if (!existCustomer(id)) {
-                    new Alert(Alert.AlertType.ERROR,"There is no such customer associated with the id " + id).show();
-
+                    new Alert(Alert.AlertType.ERROR, "There is no such customer associated with the id " + id).show();
                 }
-            }catch (SQLException e) {
+                //
+                Boolean isUpdates=customerDao.update(new CustomerDTO(id,name,address));
+                if(isUpdates){
+                    tblCustomers.refresh();
+                }
+            } catch (SQLException e) {
                 new Alert(Alert.AlertType.ERROR, "Failed to update the customer " + id + e.getMessage()).show();
             } catch (ClassNotFoundException e) {
                 e.printStackTrace();
             }
+
             CustomerTM selectedCustomer = tblCustomers.getSelectionModel().getSelectedItem();
             selectedCustomer.setName(name);
             selectedCustomer.setAddress(address);
@@ -179,12 +183,12 @@ public class ManageCustomersFormController {
         btnAddNewCustomer.fire();
     }
 
-    boolean existCustomer(String id) throws SQLException, ClassNotFoundException {
-        CustomerDao dao =new CustomerDaoImpl();
-        boolean isExists =  dao.existCustomer(id);
-        return isExists;
 
+    boolean existCustomer(String id) throws SQLException, ClassNotFoundException {
+        boolean isExists=customerDao.exist(id);
+        return isExists;
     }
+
 
     public void btnDelete_OnAction(ActionEvent actionEvent) {
         /*Delete Customer*/
@@ -193,12 +197,13 @@ public class ManageCustomersFormController {
             if (!existCustomer(id)) {
                 new Alert(Alert.AlertType.ERROR, "There is no such customer associated with the id " + id).show();
             }
-            CustomerDao dao = new CustomerDaoImpl();
-            boolean IsDeleted = dao.deleteCustomer(id);
+            boolean isDeleted=customerDao.delete(new CustomerDTO(id));
+            if(isDeleted){
+                tblCustomers.getItems().remove(tblCustomers.getSelectionModel().getSelectedItem());
+                tblCustomers.getSelectionModel().clearSelection();
+                initUI();
+            }
 
-            tblCustomers.getItems().remove(tblCustomers.getSelectionModel().getSelectedItem());
-            tblCustomers.getSelectionModel().clearSelection();
-            initUI();
 
         } catch (SQLException e) {
             new Alert(Alert.AlertType.ERROR, "Failed to delete the customer " + id).show();
@@ -206,17 +211,10 @@ public class ManageCustomersFormController {
             e.printStackTrace();
         }
     }
+
     private String generateNewId() {
         try {
-            CustomerDao dao = new CustomerDaoImpl();
-            ResultSet rst =  dao.generateId();
-            if (rst.next()) {
-                String id = rst.getString("id");
-                int newCustomerId = Integer.parseInt(id.replace("C00-", "")) + 1;
-                return String.format("C00-%03d", newCustomerId);
-            } else {
-                return "C00-001";
-            }
+            return customerDao.generateId();
         } catch (SQLException e) {
             new Alert(Alert.AlertType.ERROR, "Failed to generate a new id " + e.getMessage()).show();
         } catch (ClassNotFoundException e) {
@@ -233,6 +231,7 @@ public class ManageCustomersFormController {
         }
 
     }
+
     private String getLastCustomerId() {
         List<CustomerTM> tempCustomersList = new ArrayList<>(tblCustomers.getItems());
         Collections.sort(tempCustomersList);
