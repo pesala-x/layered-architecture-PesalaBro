@@ -17,10 +17,6 @@ public class CustomerDTO implements Serializable {
         this.address = address;
     }
 
-    public CustomerDTO(String id) {
-        this.id = id;
-    }
-
     public String getId() {
         return id;
     }
@@ -53,5 +49,4 @@ public class CustomerDTO implements Serializable {
                 ", address='" + address + '\'' +
                 '}';
     }
-
 }
