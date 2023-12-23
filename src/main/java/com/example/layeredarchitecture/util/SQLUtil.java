@@ -12,7 +12,6 @@ public class SQLUtil {
         for (int i = 0; i < arg.length; i++) {
             statement.setObject((i + 1), arg[i]);
         }
-
         if (sql.trim().toUpperCase().startsWith("SELECT")){
             return (T) statement.executeQuery();
         }else {
