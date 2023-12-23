@@ -1,5 +1,7 @@
 package com.example.layeredarchitecture.controller;
 
+import com.example.layeredarchitecture.bo.PlaceOrderBo;
+import com.example.layeredarchitecture.bo.PlaceOrderBoImpl;
 import com.example.layeredarchitecture.dao.custom.CustomerDAOImpl;
 import com.example.layeredarchitecture.dao.custom.ItemDAOImpl;
 import com.example.layeredarchitecture.dao.custom.OrderDetailDAOImpl;
@@ -305,7 +307,7 @@ public class PlaceOrderFormController {
     public void txtQty_OnAction(ActionEvent actionEvent) {
     }
 
-    public void btnPlaceOrder_OnAction(ActionEvent actionEvent) {
+    public void btnPlaceOrder_OnAction(ActionEvent actionEvent) throws SQLException, ClassNotFoundException {
         boolean b = saveOrder(orderId, LocalDate.now(), cmbCustomerId.getValue(),
                 tblOrderDetails.getItems().stream().map(tm -> new OrderDetailDTO(tm.getCode(), tm.getQty(), tm.getUnitPrice())).collect(Collectors.toList()));
 
@@ -324,59 +326,10 @@ public class PlaceOrderFormController {
         calculateTotal();
     }
 
-    public boolean saveOrder(String orderId, LocalDate orderDate, String customerId, List<OrderDetailDTO> orderDetails) {
+    public boolean saveOrder(String orderId, LocalDate orderDate, String customerId, List<OrderDetailDTO> orderDetails) throws SQLException, ClassNotFoundException {
         /*Transaction*/
+        PlaceOrderBo placeOrderBo=new PlaceOrderBoImpl();
 
-        try {
-            TransactionUtil.startTransaction();
-
-            boolean isExists = ordersDAO.isExists(orderId);
-            /*if order id already exist*/
-            if (isExists) {
-
-            }
-
-            boolean isSaved = ordersDAO.save(new OrderDTO(orderId, orderDate, customerId));
-
-            if (!isSaved) {
-                TransactionUtil.rollBack();
-                return false;
-            }
-
-            for (OrderDetailDTO detail : orderDetails) {
-
-                if (!orderDetailDAO.saveOrderDetail(orderId, detail)) {
-                    TransactionUtil.rollBack();
-                    return false;
-                }
-
-//                //Search & Update Item
-                ItemDTO item = findItem(detail.getItemCode());
-                item.setQtyOnHand(item.getQtyOnHand() - detail.getQty());
-
-                if (!itemDAO.update(item)) {
-                    TransactionUtil.rollBack();
-                    return false;
-                }
-            }
-
-            TransactionUtil.endTransaction();
-            return true;
-
-        } catch (SQLException | ClassNotFoundException throwable) {
-            throwable.printStackTrace();
-        }
-        return false;
-    }
-
-    public ItemDTO findItem(String code) {
-        try {
-            return itemDAO.search(code);
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to find the Item " + code, e);
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-        return null;
+        return placeOrderBo.placeOrder(orderId, orderDate, customerId,orderDetails);
     }
 }
